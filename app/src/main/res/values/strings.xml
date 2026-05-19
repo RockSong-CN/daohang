@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">生活导航</string>
+    <string name="card_house">房产</string>
+    <string name="card_lvyou">旅游</string>
+    <string name="card_daxue">大学</string>
+    <string name="card_cdong">虫洞</string>
+</resources>
