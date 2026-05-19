@@ -1,12 +1,14 @@
 package com.daohang.app
 
 import android.app.AlertDialog
+import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.widget.ImageView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,8 +17,13 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.textfield.TextInputEditText
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -38,6 +45,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val exportLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            exportBackup(uri)
+        }
+    }
+
+    private val importLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            importBackup(uri)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -45,7 +68,7 @@ class MainActivity : AppCompatActivity() {
         cards = CardStore.getCards(this)
 
         recyclerView = findViewById(R.id.recyclerView)
-        recyclerView.layoutManager = GridLayoutManager(this, 2)
+        recyclerView.layoutManager = GridLayoutManager(this, 3)
 
         adapter = CardAdapter(cards,
             onCardClick = { card -> openWebView(card.title, card.url) },
@@ -71,6 +94,10 @@ class MainActivity : AppCompatActivity() {
             showAddDialog()
         }
 
+        findViewById<ImageView>(R.id.btnSettings).setOnClickListener {
+            showSettingsMenu()
+        }
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (adapter.isInEditMode()) {
@@ -81,6 +108,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+
+        checkBackupTip()
     }
 
     private fun openWebView(title: String, url: String) {
@@ -148,7 +177,6 @@ class MainActivity : AppCompatActivity() {
         val ivPreview = view.findViewById<ImageView>(R.id.ivPreview)
         val btnPickImage = view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnPickImage)
 
-        // 填充现有数据
         etName.setText(card.title)
         etUrl.setText(card.url)
         if (card.customImagePath.isNotEmpty()) {
@@ -158,7 +186,6 @@ class MainActivity : AppCompatActivity() {
             } catch (_: Exception) {}
         }
 
-        // 修改标题
         view.findViewById<android.widget.TextView>(R.id.tvDialogTitle)?.text = "编辑导航"
         view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnConfirm)?.text = "保存"
 
@@ -225,5 +252,135 @@ class MainActivity : AppCompatActivity() {
             }
         }
         return file.absolutePath
+    }
+
+    // ========== 设置菜单 ==========
+    private fun showSettingsMenu() {
+        val items = arrayOf("导出备份", "导入恢复")
+        AlertDialog.Builder(this)
+            .setTitle("数据管理")
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> doExport()
+                    1 -> doImport()
+                }
+            }
+            .show()
+    }
+
+    // ========== 导出备份 ==========
+    private fun doExport() {
+        val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        exportLauncher.launch("导航备份_$date.json")
+    }
+
+    private fun exportBackup(uri: Uri) {
+        try {
+            val arr = JSONArray()
+            for (card in cards) {
+                val obj = JSONObject()
+                obj.put("title", card.title)
+                obj.put("url", card.url)
+                obj.put("iconName", card.iconName)
+                obj.put("customImagePath", card.customImagePath)
+                obj.put("isCustom", card.isCustom)
+                obj.put("bgColor", card.bgColor)
+                arr.put(obj)
+            }
+            val root = JSONObject()
+            root.put("version", 1)
+            root.put("cards", arr)
+            root.put("exportDate", SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date()))
+
+            contentResolver.openOutputStream(uri)?.use { output ->
+                output.write(root.toString().toByteArray())
+            }
+
+            getSharedPreferences("daohang_prefs", Context.MODE_PRIVATE)
+                .edit().putLong("last_backup", Date().time).apply()
+
+            Toast.makeText(this, "已导出备份", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "导出失败", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // ========== 导入恢复 ==========
+    private fun doImport() {
+        importLauncher.launch(arrayOf("application/json"))
+    }
+
+    private fun importBackup(uri: Uri) {
+        try {
+            val json = contentResolver.openInputStream(uri)?.bufferedReader()?.readText()
+            if (json.isNullOrEmpty()) {
+                Toast.makeText(this, "文件为空", Toast.LENGTH_SHORT).show()
+                return
+            }
+            val root = JSONObject(json)
+            val arr = root.optJSONArray("cards")
+            if (arr == null) {
+                Toast.makeText(this, "文件格式不正确", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            val importCards = mutableListOf<CardItem>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                importCards.add(CardItem(
+                    title = obj.getString("title"),
+                    url = obj.getString("url"),
+                    iconName = obj.optString("iconName", ""),
+                    customImagePath = obj.optString("customImagePath", ""),
+                    isCustom = obj.optBoolean("isCustom", false),
+                    bgColor = obj.optString("bgColor", "")
+                ))
+            }
+
+            val customCards = importCards.filter { it.isCustom }
+            if (customCards.isEmpty()) {
+                Toast.makeText(this, "文件中没有自定义导航", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            // 智能合并：URL + 名称双重判重
+            val existUrls = cards.map { it.url }.toMutableSet()
+            val existTitles = cards.map { it.title }.toMutableSet()
+            var addCount = 0
+            for (c in customCards) {
+                if (!existUrls.contains(c.url) && !existTitles.contains(c.title)) {
+                    val newCard = if (c.customImagePath.isNotEmpty()) {
+                        val srcFile = File(c.customImagePath)
+                        if (srcFile.exists()) c else c.copy(customImagePath = "")
+                    } else {
+                        c
+                    }
+                    cards.add(newCard)
+                    existUrls.add(c.url)
+                    existTitles.add(c.title)
+                    addCount++
+                }
+            }
+
+            if (addCount > 0) {
+                CardStore.saveCards(this, cards)
+                adapter.notifyDataSetChanged()
+                Toast.makeText(this, "已恢复 $addCount 个导航", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "所有导航已存在，无需恢复", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "导入失败：文件格式错误", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // ========== 备份提醒 ==========
+    private fun checkBackupTip() {
+        val customCount = cards.count { it.isCustom }
+        val lastBackup = getSharedPreferences("daohang_prefs", Context.MODE_PRIVATE)
+            .getLong("last_backup", 0)
+        if (customCount >= 3 && lastBackup == 0L) {
+            Toast.makeText(this, "您已添加多个导航，建议导出备份防止数据丢失", Toast.LENGTH_LONG).show()
+        }
     }
 }

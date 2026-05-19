@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>生活导航</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="生活导航">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; min-height: 100vh; }
+
+        /* 顶部栏 */
+        .header { background: linear-gradient(135deg, #3b82f6, #8b5cf6); padding: 20px 16px 16px; color: white; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        .header h1 { font-size: 20px; font-weight: 700; }
+        .header-actions { display: flex; gap: 8px; }
+        .header-btn { background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 10px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .header-btn:active { background: rgba(255,255,255,0.3); }
+        .header-btn.edit-active { background: rgba(255,255,255,0.5); }
+
+        /* 卡片网格 */
+        .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 16px; max-width: 500px; margin: 0 auto; }
+
+        /* 卡片 */
+        .card { background: white; border-radius: 16px; padding: 20px 12px; display: flex; flex-direction: column; align-items: center; cursor: pointer; position: relative; transition: transform 0.15s, box-shadow 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .card:active { transform: scale(0.96); }
+        .card-icon { width: 52px; height: 52px; border-radius: 14px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .card-icon img { width: 100%; height: 100%; object-fit: cover; }
+        .card-icon svg { width: 28px; height: 28px; }
+        .card-title { font-size: 14px; font-weight: 600; color: #1e293b; }
+        .card-url { font-size: 11px; color: #94a3b8; margin-top: 4px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* 编辑模式按钮 */
+        .card-edit, .card-delete { position: absolute; top: -8px; width: 24px; height: 24px; border-radius: 12px; border: none; color: white; font-size: 12px; cursor: pointer; display: none; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+        .card-delete { right: -8px; background: #ef4444; }
+        .card-edit { right: 20px; background: #3b82f6; }
+        .card.editing .card-edit, .card.editing .card-delete { display: flex; }
+
+        /* 添加按钮 */
+        .fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 16px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; border: none; font-size: 28px; cursor: pointer; box-shadow: 0 4px 12px rgba(59,130,246,0.4); display: flex; align-items: center; justify-content: center; z-index: 50; }
+        .fab:active { transform: scale(0.92); }
+
+        /* 弹窗遮罩 */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+        .modal-overlay.active { display: flex; }
+
+        /* 弹窗 */
+        .modal { background: white; border-radius: 20px; padding: 24px; width: 100%; max-width: 360px; }
+        .modal h2 { font-size: 18px; font-weight: 700; color: #1e293b; margin-bottom: 20px; text-align: center; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 6px; }
+        .form-group input { width: 100%; padding: 12px 14px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 15px; outline: none; transition: border-color 0.2s; }
+        .form-group input:focus { border-color: #3b82f6; }
+
+        /* 图标选择 */
+        .icon-picker { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .icon-preview { width: 52px; height: 52px; border-radius: 14px; border: 2px dashed #e2e8f0; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; }
+        .icon-preview img { width: 100%; height: 100%; object-fit: cover; }
+        .icon-preview svg { width: 24px; height: 24px; fill: #94a3b8; }
+        .icon-hint { font-size: 13px; color: #94a3b8; }
+
+        /* 颜色选择 */
+        .color-picker { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .color-option { width: 32px; height: 32px; border-radius: 10px; cursor: pointer; border: 3px solid transparent; transition: border-color 0.15s; }
+        .color-option.selected { border-color: #1e293b; }
+
+        /* 按钮组 */
+        .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+        .btn { flex: 1; padding: 12px; border-radius: 12px; border: none; font-size: 15px; font-weight: 600; cursor: pointer; }
+        .btn-cancel { background: #f1f5f9; color: #64748b; }
+        .btn-confirm { background: #3b82f6; color: white; }
+        .btn-cancel:active { background: #e2e8f0; }
+        .btn-confirm:active { background: #2563eb; }
+
+        /* 删除确认弹窗 */
+        .confirm-modal .modal { text-align: center; }
+        .confirm-modal .modal p { font-size: 15px; color: #475569; margin-bottom: 20px; line-height: 1.6; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:active { background: #dc2626; }
+
+        /* WebView 弹窗 */
+        .webview-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: white; z-index: 300; flex-direction: column; }
+        .webview-overlay.active { display: flex; }
+        .webview-header { display: flex; align-items: center; padding: 12px 16px; background: white; border-bottom: 1px solid #e2e8f0; gap: 12px; }
+        .webview-back { background: none; border: none; font-size: 24px; cursor: pointer; color: #1e293b; padding: 4px; }
+        .webview-title { font-size: 16px; font-weight: 600; color: #1e293b; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .webview-refresh { background: none; border: none; font-size: 20px; cursor: pointer; color: #64748b; padding: 4px; }
+        .webview-frame { flex: 1; border: none; width: 100%; }
+
+        /* 空状态 */
+        .empty-state { text-align: center; padding: 60px 20px; color: #94a3b8; }
+        .empty-state svg { width: 64px; height: 64px; fill: #cbd5e1; margin-bottom: 16px; }
+        .empty-state p { font-size: 15px; }
+
+        /* 设置菜单 */
+        .menu-dropdown { display: none; position: absolute; top: 56px; right: 12px; background: white; border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); overflow: hidden; z-index: 150; min-width: 140px; }
+        .menu-dropdown.active { display: block; }
+        .menu-item { display: flex; align-items: center; gap: 10px; padding: 14px 16px; font-size: 14px; color: #1e293b; cursor: pointer; border: none; background: none; width: 100%; text-align: left; }
+        .menu-item:active { background: #f1f5f9; }
+        .menu-item + .menu-item { border-top: 1px solid #f1f5f9; }
+        .menu-icon { font-size: 16px; width: 20px; text-align: center; }
+
+        /* Toast 提示 */
+        .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 12px 24px; border-radius: 12px; font-size: 14px; z-index: 500; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        .toast.show { opacity: 1; }
+
+        /* 备份提醒 */
+        .backup-tip { display: none; text-align: center; padding: 10px 16px; background: #FEF3C7; color: #92400e; font-size: 13px; margin: 0 16px; border-radius: 10px; max-width: 468px; margin-left: auto; margin-right: auto; }
+        .backup-tip.active { display: block; }
+        .backup-tip-btn { color: #3b82f6; font-weight: 600; cursor: pointer; text-decoration: underline; margin-left: 4px; }
+    </style>
+</head>
+<body>
+    <!-- 顶部栏 -->
+    <div class="header">
+        <h1>生活导航</h1>
+        <div class="header-actions">
+            <button class="header-btn" id="btnEdit" title="编辑">✏️</button>
+            <button class="header-btn" id="btnMenu" title="设置">☰</button>
+        </div>
+        <div class="menu-dropdown" id="menuDropdown">
+            <button class="menu-item" id="btnExport"><span class="menu-icon">📤</span>导出备份</button>
+            <button class="menu-item" id="btnImport"><span class="menu-icon">📥</span>导入恢复</button>
+        </div>
+    </div>
+
+    <!-- 备份提醒 -->
+    <div class="backup-tip" id="backupTip">
+        建议导出备份，防止数据丢失<span class="backup-tip-btn" id="btnBackupNow">立即备份</span>
+    </div>
+
+    <input type="file" id="importInput" accept=".json" style="display:none">
+
+    <!-- 卡片网格 -->
+    <div class="card-grid" id="cardGrid"></div>
+
+    <!-- 添加按钮 -->
+    <button class="fab" id="btnAdd">+</button>
+
+    <!-- 添加/编辑弹窗 -->
+    <div class="modal-overlay" id="addModal">
+        <div class="modal">
+            <h2 id="modalTitle">添加导航</h2>
+            <div class="form-group">
+                <label>名称</label>
+                <input type="text" id="inputName" placeholder="例如：我的网站">
+            </div>
+            <div class="form-group">
+                <label>网址</label>
+                <input type="url" id="inputUrl" placeholder="例如：https://example.com">
+            </div>
+            <div class="icon-picker">
+                <div class="icon-preview" id="iconPreview" onclick="document.getElementById('iconInput').click()">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+                </div>
+                <span class="icon-hint">点击选择图标</span>
+                <input type="file" id="iconInput" accept="image/*" style="display:none">
+            </div>
+            <div class="form-group">
+                <label>背景色</label>
+                <div class="color-picker" id="colorPicker"></div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" id="btnCancel">取消</button>
+                <button class="btn btn-confirm" id="btnConfirm">添加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认弹窗 -->
+    <div class="modal-overlay confirm-modal" id="deleteModal">
+        <div class="modal">
+            <h2>删除导航</h2>
+            <p id="deleteMsg">确定删除吗？</p>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" id="btnDeleteCancel">取消</button>
+                <button class="btn btn-danger" id="btnDeleteConfirm">删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- WebView 弹窗 -->
+    <div class="webview-overlay" id="webviewOverlay">
+        <div class="webview-header">
+            <button class="webview-back" id="btnWebviewBack">←</button>
+            <span class="webview-title" id="webviewTitle"></span>
+            <button class="webview-refresh" id="btnWebviewRefresh">↻</button>
+        </div>
+        <iframe class="webview-frame" id="webviewFrame"></iframe>
+    </div>
+
+    <script>
+    (function() {
+        // ========== 数据层 ==========
+        const STORAGE_KEY = 'daohang_cards';
+        const COLORS = ['#DBEAFE','#D1FAE5','#FEE7C3','#E9D5FF','#FCE7F3'];
+
+        const DEFAULT_CARDS = [
+            { title: '房产', url: 'https://pl.ytcbd.com', iconName: 'house', bgColor: '#DBEAFE', isCustom: false, customIcon: '' },
+            { title: '旅游', url: 'https://ka.ytcbd.com', iconName: 'lvyou', bgColor: '#D1FAE5', isCustom: false, customIcon: '' },
+            { title: '大学', url: 'https://dx.ytcbd.com', iconName: 'daxue', bgColor: '#FEE7C3', isCustom: false, customIcon: '' },
+            { title: '虫洞', url: 'https://cd.ytcbd.com', iconName: 'cdong', bgColor: '#E9D5FF', isCustom: false, customIcon: '' }
+        ];
+
+        function loadCards() {
+            try {
+                const data = localStorage.getItem(STORAGE_KEY);
+                if (data) return JSON.parse(data);
+            } catch(e) {}
+            return [...DEFAULT_CARDS];
+        }
+
+        function saveCards(cards) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+        }
+
+        let cards = loadCards();
+        let editMode = false;
+        let editingIndex = -1;
+        let pendingIcon = '';
+
+        // ========== 图标映射 ==========
+        const ICON_MAP = {
+            house: '<img src="../images/house.png" alt="房产">',
+            lvyou: '<img src="../images/lvyou.png" alt="旅游">',
+            daxue: '<img src="../images/daxue.png" alt="大学">',
+            cdong: '<img src="../images/cdong.png" alt="虫洞">'
+        };
+
+        function getFaviconUrl(url) {
+            try {
+                const u = new URL(url);
+                return u.origin + '/favicon.ico';
+            } catch(e) { return ''; }
+        }
+
+        function getCardIcon(card) {
+            if (card.customIcon) return `<img src="${card.customIcon}" alt="${card.title}" onerror="this.parentElement.innerHTML=getDefaultIcon()">`;
+            if (ICON_MAP[card.iconName]) return ICON_MAP[card.iconName];
+            return getDefaultIcon();
+        }
+
+        function getDefaultIcon() {
+            return '<img src="icons/icon-192.png" alt="默认图标">';
+        }
+
+        // ========== 渲染 ==========
+        function render() {
+            const grid = document.getElementById('cardGrid');
+            if (cards.length === 0) {
+                grid.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg><p>暂无导航，点击右下角添加</p></div>';
+                return;
+            }
+            grid.innerHTML = cards.map((card, i) => `
+                <div class="card ${editMode && card.isCustom ? 'editing' : ''}" data-index="${i}" style="background:${card.bgColor || '#fff'}">
+                    <button class="card-edit" data-action="edit" data-index="${i}">✏</button>
+                    <button class="card-delete" data-action="delete" data-index="${i}">✕</button>
+                    <div class="card-icon">${getCardIcon(card)}</div>
+                    <div class="card-title">${card.title}</div>
+                </div>
+            `).join('');
+        }
+
+        // ========== 编辑模式 ==========
+        document.getElementById('btnEdit').addEventListener('click', function() {
+            editMode = !editMode;
+            this.classList.toggle('edit-active', editMode);
+            this.textContent = editMode ? '✓' : '✏️';
+            render();
+        });
+
+        // ========== 卡片点击 ==========
+        document.getElementById('cardGrid').addEventListener('click', function(e) {
+            const editBtn = e.target.closest('[data-action="edit"]');
+            const deleteBtn = e.target.closest('[data-action="delete"]');
+            const card = e.target.closest('.card');
+
+            if (editBtn) {
+                openEditModal(parseInt(editBtn.dataset.index));
+                return;
+            }
+            if (deleteBtn) {
+                openDeleteModal(parseInt(deleteBtn.dataset.index));
+                return;
+            }
+            if (card && !editMode) {
+                const index = parseInt(card.dataset.index);
+                openWebView(cards[index].title, cards[index].url);
+            }
+        });
+
+        // 长按进入编辑模式
+        let longPressTimer;
+        document.getElementById('cardGrid').addEventListener('touchstart', function(e) {
+            const card = e.target.closest('.card');
+            if (!card) return;
+            longPressTimer = setTimeout(() => {
+                if (!editMode && cards.some(c => c.isCustom)) {
+                    editMode = true;
+                    document.getElementById('btnEdit').classList.add('edit-active');
+                    document.getElementById('btnEdit').textContent = '✓';
+                    render();
+                }
+            }, 600);
+        });
+        document.getElementById('cardGrid').addEventListener('touchend', () => clearTimeout(longPressTimer));
+        document.getElementById('cardGrid').addEventListener('touchmove', () => clearTimeout(longPressTimer));
+
+        // ========== 添加弹窗 ==========
+        const addModal = document.getElementById('addModal');
+        const inputName = document.getElementById('inputName');
+        const inputUrl = document.getElementById('inputUrl');
+        const iconInput = document.getElementById('iconInput');
+        const iconPreview = document.getElementById('iconPreview');
+        const colorPicker = document.getElementById('colorPicker');
+
+        let selectedColor = '#DBEAFE';
+
+        function renderColorPicker() {
+            colorPicker.innerHTML = COLORS.map(c =>
+                `<div class="color-option ${c === selectedColor ? 'selected' : ''}" style="background:${c}" data-color="${c}"></div>`
+            ).join('');
+        }
+
+        colorPicker.addEventListener('click', function(e) {
+            const opt = e.target.closest('.color-option');
+            if (opt) {
+                selectedColor = opt.dataset.color;
+                renderColorPicker();
+            }
+        });
+
+        inputUrl.addEventListener('input', function() {
+            const url = this.value.trim();
+            if (!url) return;
+            let fullUrl = url;
+            if (!/^https?:\/\//.test(fullUrl)) fullUrl = 'https://' + fullUrl;
+            try {
+                const faviconUrl = new URL(fullUrl).origin + '/favicon.ico';
+                if (!pendingIcon) {
+                    iconPreview.innerHTML = `<img src="${faviconUrl}" alt="preview" onerror="this.onerror=null;this.src='https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(fullUrl).hostname)}&sz=64';this.addEventListener('error',function(){this.parentElement.innerHTML='<svg viewBox=\'0 0 24 24\'><path d=\'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z\'/></svg>'})">`;
+                }
+            } catch(e) {}
+        });
+
+        iconInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                pendingIcon = e.target.result;
+                iconPreview.innerHTML = `<img src="${pendingIcon}" alt="preview">`;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function openAddModal() {
+            editingIndex = -1;
+            document.getElementById('modalTitle').textContent = '添加导航';
+            document.getElementById('btnConfirm').textContent = '添加';
+            inputName.value = '';
+            inputUrl.value = '';
+            pendingIcon = '';
+            selectedColor = '#DBEAFE';
+            iconPreview.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>';
+            renderColorPicker();
+            addModal.classList.add('active');
+        }
+
+        function openEditModal(index) {
+            editingIndex = index;
+            const card = cards[index];
+            document.getElementById('modalTitle').textContent = '编辑导航';
+            document.getElementById('btnConfirm').textContent = '保存';
+            inputName.value = card.title;
+            inputUrl.value = card.url;
+            pendingIcon = card.customIcon || '';
+            selectedColor = card.bgColor || '#DBEAFE';
+            if (pendingIcon) {
+                iconPreview.innerHTML = `<img src="${pendingIcon}" alt="preview">`;
+            } else {
+                iconPreview.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>';
+            }
+            renderColorPicker();
+            addModal.classList.add('active');
+        }
+
+        document.getElementById('btnAdd').addEventListener('click', openAddModal);
+        document.getElementById('btnCancel').addEventListener('click', () => addModal.classList.remove('active'));
+        addModal.addEventListener('click', function(e) { if (e.target === this) this.classList.remove('active'); });
+
+        document.getElementById('btnConfirm').addEventListener('click', function() {
+            const name = inputName.value.trim();
+            let url = inputUrl.value.trim();
+            if (!name || !url) return;
+            if (!/^https?:\/\//.test(url)) url = 'https://' + url;
+
+            if (editingIndex >= 0) {
+                cards[editingIndex] = { ...cards[editingIndex], title: name, url, customIcon: pendingIcon, bgColor: selectedColor };
+            } else {
+                cards.push({ title: name, url, iconName: '', bgColor: selectedColor, isCustom: true, customIcon: pendingIcon });
+            }
+            saveCards(cards);
+            render();
+            addModal.classList.remove('active');
+        });
+
+        // ========== 删除弹窗 ==========
+        const deleteModal = document.getElementById('deleteModal');
+        let deleteIndex = -1;
+
+        function openDeleteModal(index) {
+            deleteIndex = index;
+            document.getElementById('deleteMsg').textContent = `确定删除「${cards[index].title}」吗？`;
+            deleteModal.classList.add('active');
+        }
+
+        document.getElementById('btnDeleteCancel').addEventListener('click', () => deleteModal.classList.remove('active'));
+        deleteModal.addEventListener('click', function(e) { if (e.target === this) this.classList.remove('active'); });
+
+        document.getElementById('btnDeleteConfirm').addEventListener('click', function() {
+            if (deleteIndex >= 0) {
+                cards.splice(deleteIndex, 1);
+                saveCards(cards);
+                render();
+                if (!cards.some(c => c.isCustom)) {
+                    editMode = false;
+                    document.getElementById('btnEdit').classList.remove('edit-active');
+                    document.getElementById('btnEdit').textContent = '✏️';
+                }
+            }
+            deleteModal.classList.remove('active');
+        });
+
+        // ========== WebView ==========
+        const webviewOverlay = document.getElementById('webviewOverlay');
+        const webviewFrame = document.getElementById('webviewFrame');
+
+        function openWebView(title, url) {
+            document.getElementById('webviewTitle').textContent = title;
+            webviewFrame.src = url;
+            webviewOverlay.classList.add('active');
+        }
+
+        document.getElementById('btnWebviewBack').addEventListener('click', function() {
+            webviewFrame.src = '';
+            webviewOverlay.classList.remove('active');
+        });
+
+        document.getElementById('btnWebviewRefresh').addEventListener('click', function() {
+            webviewFrame.src = webviewFrame.src;
+        });
+
+        // ========== 初始化 ==========
+        render();
+        checkBackupTip();
+
+        // ========== 设置菜单 ==========
+        const menuDropdown = document.getElementById('menuDropdown');
+        document.getElementById('btnMenu').addEventListener('click', function(e) {
+            e.stopPropagation();
+            menuDropdown.classList.toggle('active');
+        });
+        document.addEventListener('click', function() {
+            menuDropdown.classList.remove('active');
+        });
+        menuDropdown.addEventListener('click', function(e) { e.stopPropagation(); });
+
+        // ========== Toast 提示 ==========
+        function showToast(msg) {
+            let toast = document.querySelector('.toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.className = 'toast';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        // ========== 导出备份 ==========
+        document.getElementById('btnExport').addEventListener('click', function() {
+            menuDropdown.classList.remove('active');
+            const data = { version: 1, cards: cards, exportDate: new Date().toISOString() };
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const date = new Date().toISOString().slice(0, 10);
+            a.href = url;
+            a.download = '导航备份_' + date + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            localStorage.setItem('daohang_last_backup', Date.now().toString());
+            showToast('已导出备份');
+            checkBackupTip();
+        });
+
+        // ========== 导入恢复 ==========
+        const importInput = document.getElementById('importInput');
+        document.getElementById('btnImport').addEventListener('click', function() {
+            menuDropdown.classList.remove('active');
+            importInput.click();
+        });
+        importInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!data.cards || !Array.isArray(data.cards)) {
+                        showToast('文件格式不正确');
+                        return;
+                    }
+                    const customCards = data.cards.filter(c => c.isCustom);
+                    if (customCards.length === 0) {
+                        showToast('文件中没有自定义导航');
+                        return;
+                    }
+                    // 合并：保留现有，添加不重复的
+                    const existUrls = new Set(cards.map(c => c.url));
+                    let addCount = 0;
+                    customCards.forEach(c => {
+                        if (!existUrls.has(c.url)) {
+                            cards.push(c);
+                            existUrls.add(c.url);
+                            addCount++;
+                        }
+                    });
+                    saveCards(cards);
+                    render();
+                    showToast('已恢复 ' + addCount + ' 个导航');
+                    checkBackupTip();
+                } catch(err) {
+                    showToast('文件解析失败');
+                }
+            };
+            reader.readAsText(file);
+            this.value = '';
+        });
+
+        // ========== 备份提醒 ==========
+        function checkBackupTip() {
+            const tip = document.getElementById('backupTip');
+            const customCount = cards.filter(c => c.isCustom).length;
+            const lastBackup = localStorage.getItem('daohang_last_backup');
+            if (customCount >= 3 && !lastBackup) {
+                tip.classList.add('active');
+            } else {
+                tip.classList.remove('active');
+            }
+        }
+        document.getElementById('btnBackupNow').addEventListener('click', function() {
+            document.getElementById('btnExport').click();
+        });
+    })();
+    </script>
+</body>
+</html>

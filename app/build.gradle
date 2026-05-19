@@ -7,6 +7,15 @@ android {
     namespace 'com.daohang.app'
     compileSdk 34
 
+    signingConfigs {
+        release {
+            storeFile file('daohang-release.jks')
+            storePassword 'daohang123'
+            keyAlias 'daohang'
+            keyPassword 'daohang123'
+        }
+    }
+
     defaultConfig {
         applicationId "com.daohang.app"
         minSdk 24
@@ -19,6 +28,7 @@ android {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 

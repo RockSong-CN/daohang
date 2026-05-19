@@ -1,0 +1,22 @@
+{
+    "name": "生活导航",
+    "short_name": "导航",
+    "description": "生活导航 - 快速访问常用网站",
+    "start_url": "app.html",
+    "display": "standalone",
+    "background_color": "#f1f5f9",
+    "theme_color": "#3b82f6",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

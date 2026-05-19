@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>生活导航</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="生活导航">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; min-height: 100vh; }
+
+        /* iOS 引导页 */
+        .ios-guide { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; min-height: 100vh; }
+        .ios-guide.active { display: flex; }
+        .guide-icon { width: 80px; height: 80px; border-radius: 20px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); margin-bottom: 20px; display: flex; align-items: center; justify-content: center; }
+        .guide-icon svg { width: 40px; height: 40px; fill: white; }
+        .guide-title { font-size: 24px; font-weight: 700; color: #1e293b; margin-bottom: 8px; }
+        .guide-subtitle { font-size: 15px; color: #64748b; margin-bottom: 32px; text-align: center; line-height: 1.6; }
+        .guide-steps { width: 100%; max-width: 320px; }
+        .step { display: flex; align-items: flex-start; margin-bottom: 24px; }
+        .step-num { width: 28px; height: 28px; border-radius: 14px; background: #3b82f6; color: white; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0; }
+        .step-text { font-size: 15px; color: #334155; line-height: 1.6; }
+        .step-text strong { color: #1e293b; }
+        .guide-arrow { margin: 16px auto; width: 40px; height: 40px; animation: bounce 2s infinite; }
+        .guide-arrow svg { fill: #3b82f6; }
+        @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        .btn-open { display: inline-block; margin-top: 16px; padding: 12px 32px; background: #3b82f6; color: white; border-radius: 12px; font-size: 16px; font-weight: 600; text-decoration: none; }
+        .wechat-tip { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 999; flex-direction: column; align-items: center; justify-content: center; color: white; }
+        .wechat-tip.active { display: flex; }
+        .wechat-tip .tip-box { background: white; color: #1e293b; border-radius: 16px; padding: 32px 24px; text-align: center; max-width: 300px; }
+        .wechat-tip .tip-box h3 { margin-bottom: 12px; font-size: 18px; }
+        .wechat-tip .tip-box p { font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 8px; }
+        .wechat-tip .tip-arrow { position: absolute; top: 12px; right: 16px; animation: bounce 2s infinite; }
+        .wechat-tip .tip-arrow svg { fill: white; width: 36px; height: 36px; }
+    </style>
+</head>
+<body>
+    <!-- iOS 引导页 -->
+    <div class="ios-guide" id="iosGuide">
+        <div class="guide-icon">
+            <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+        </div>
+        <div class="guide-title">生活导航</div>
+        <div class="guide-subtitle">添加到主屏幕，享受 App般的体验</div>
+        <div class="guide-steps">
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-text">点击 Safari 底部的 <strong>分享按钮</strong></div>
+            </div>
+            <div class="guide-arrow">
+                <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-text">在弹出菜单中选择 <strong>"添加到主屏幕"</strong></div>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-text">点击右上角 <strong>"添加"</strong> 完成</div>
+            </div>
+        </div>
+        <a href="app.html" class="btn-open">先在浏览器中体验</a>
+    </div>
+
+    <!-- 微信内提示 -->
+    <div class="wechat-tip" id="wechatTip">
+        <div class="tip-arrow">
+            <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+        </div>
+        <div class="tip-box">
+            <h3>请在浏览器中打开</h3>
+            <p>点击右上角 <strong>···</strong> 按钮</p>
+            <p>选择 <strong>"在浏览器中打开"</strong></p>
+        </div>
+    </div>
+
+    <script>
+        const ua = navigator.userAgent.toLowerCase();
+        const isIOS = /iphone|ipad|ipod/.test(ua);
+        const isAndroid = /android/.test(ua);
+        const isWechat = /micromessenger/.test(ua);
+
+        if (isWechat) {
+            document.getElementById('wechatTip').classList.add('active');
+        } else if (isIOS) {
+            document.getElementById('iosGuide').classList.add('active');
+        } else if (isAndroid) {
+            window.location.href = 'daohang.apk';
+        } else {
+            // 其他设备直接打开功能页
+            window.location.href = 'app.html';
+        }
+
+        // 注册 Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
+</body>
+</html>
