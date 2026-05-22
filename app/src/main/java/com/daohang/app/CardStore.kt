@@ -69,7 +69,8 @@ object CardStore {
             CardItem("房产", "https://pl.ytcbd.com", "house", "", false, "#DBEAFE"),
             CardItem("旅游", "https://ka.ytcbd.com", "lvyou", "", false, "#D1FAE5"),
             CardItem("大学", "https://dx.ytcbd.com", "daxue", "", false, "#FEE7C3"),
-            CardItem("虫洞", "https://cd.ytcbd.com", "cdong", "", false, "#E9D5FF")
+            CardItem("虫洞", "https://cd.ytcbd.com", "cdong", "", false, "#E9D5FF"),
+            CardItem("乐消消", "https://xx.ytcbd.com", "lexiaoxiao", "", false, "#FCE7F3")
         )
     }
 }

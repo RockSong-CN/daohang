@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daohang-v1';
+const CACHE_NAME = 'daohang-v2';
 const CACHE_URLS = [
     'app.html',
     'manifest.json',

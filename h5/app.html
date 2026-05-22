@@ -202,13 +202,27 @@
             { title: '房产', url: 'https://pl.ytcbd.com', iconName: 'house', bgColor: '#DBEAFE', isCustom: false, customIcon: '' },
             { title: '旅游', url: 'https://ka.ytcbd.com', iconName: 'lvyou', bgColor: '#D1FAE5', isCustom: false, customIcon: '' },
             { title: '大学', url: 'https://dx.ytcbd.com', iconName: 'daxue', bgColor: '#FEE7C3', isCustom: false, customIcon: '' },
-            { title: '虫洞', url: 'https://cd.ytcbd.com', iconName: 'cdong', bgColor: '#E9D5FF', isCustom: false, customIcon: '' }
+            { title: '虫洞', url: 'https://cd.ytcbd.com', iconName: 'cdong', bgColor: '#E9D5FF', isCustom: false, customIcon: '' },
+            { title: '乐消消', url: 'https://xx.ytcbd.com', iconName: 'lexiaoxiao', bgColor: '#FCE7F3', isCustom: false, customIcon: '' }
         ];
 
         function loadCards() {
             try {
                 const data = localStorage.getItem(STORAGE_KEY);
-                if (data) return JSON.parse(data);
+                if (data) {
+                    const cards = JSON.parse(data);
+                    // 自动合并新的默认卡片（用 iconName 标识，已存在则跳过）
+                    const existingIcons = new Set(cards.filter(c => !c.isCustom).map(c => c.iconName));
+                    let changed = false;
+                    DEFAULT_CARDS.forEach(dc => {
+                        if (!existingIcons.has(dc.iconName)) {
+                            cards.push({...dc});
+                            changed = true;
+                        }
+                    });
+                    if (changed) saveCards(cards);
+                    return cards;
+                }
             } catch(e) {}
             return [...DEFAULT_CARDS];
         }
@@ -227,7 +241,8 @@
             house: '<img src="../images/house.png" alt="房产">',
             lvyou: '<img src="../images/lvyou.png" alt="旅游">',
             daxue: '<img src="../images/daxue.png" alt="大学">',
-            cdong: '<img src="../images/cdong.png" alt="虫洞">'
+            cdong: '<img src="../images/cdong.png" alt="虫洞">',
+            lexiaoxiao: '<img src="../images/lexiaoxiao.png" alt="乐消消">'
         };
 
         function getFaviconUrl(url) {
